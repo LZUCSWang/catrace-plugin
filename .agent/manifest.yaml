@@ -1,0 +1,16 @@
+features:
+  agent-notify:
+    docs:
+      - .agent/features/agent-notify/README.md
+      - .agent/features/agent-notify/会话标题-三级来源与为什么不读transcript不回写.md
+      - .agent/features/agent-notify/toast卡观感-agent徽章品牌图标与body首段strip.md
+    related:
+      - agent-hook-events-docs
+
+devlog:
+  - .agent/devlog/2026-09-13-agent-notify-标题链路与品牌徽章观感.md
+
+current:
+  plan: .agent/features/agent-notify/README.md
+  phase: 标题链路与 toast 观感完成并提交（2026-09-13，未 push）
+  next: 会话结束自动清卡（SessionEnd，先只 Claude）；确认「prompt 当标题」去留；之后统一 push
