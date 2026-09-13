@@ -1,0 +1,21 @@
+{
+  "id": "auto-checkin",
+  "name": "自动签到",
+  "version": "0.1.0",
+  "description": "每天为每个浏览器随机分配签到时刻，自动运行签到脚本；面板可查看状态、立即测试、暂停、补跑",
+  "main": "ui.mjs",
+  "settings": "settings.mjs",
+  "icon": "icon.svg",
+  "events": [
+    "auto-checkin",
+    "kind:auto-checkin",
+    "auto-checkin.result",
+    "auto-checkin.summary"
+  ],
+  "enabledByDefault": false,
+  "sidecar": {
+    "command": "node",
+    "args": ["runtime/main.mjs"],
+    "cwd": "."
+  }
+}
