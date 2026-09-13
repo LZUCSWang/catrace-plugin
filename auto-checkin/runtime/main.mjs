@@ -260,13 +260,20 @@ function readNewLines(file, offsetBytes) {
     try {
       const buf = Buffer.alloc(size - offsetBytes)
       fs.readSync(fd, buf, 0, buf.length, offsetBytes)
-      return buf.toString('utf8').split(/\r?\n/).filter(Boolean)
+      return buf.toString('utf8').replace(/^\uFEFF/, '').split(/\r?\n/).filter(Boolean)
     } finally {
       fs.closeSync(fd)
     }
   } catch {
     return []
   }
+}
+
+// Write-Log prefixes every line with an ISO timestamp:
+// "2026-09-13T13:00:31.1146846+08:00 Edge: launched, ..."
+function stripLogTimestamp(line) {
+  const m = line.match(/^\d{4}-\d{2}-\d{2}T\S+\s+(.*)$/)
+  return m ? m[1] : line
 }
 
 function runPowerShell(script, browser) {
@@ -337,7 +344,9 @@ async function runBrowser(entry, reason) {
   log(`run start: ${entry.browser} (${reason})`)
   const { code, timedOut, stderrTail } = await runPowerShell(script, entry.browser)
   const endedAt = Date.now()
-  const lines = readNewLines(logPath, offset).filter((l) => l.startsWith(`${entry.browser}: `))
+  const lines = readNewLines(logPath, offset)
+    .map(stripLogTimestamp)
+    .filter((l) => l.startsWith(`${entry.browser}: `))
   const verdict = classify(lines, entry.browser, code, timedOut, stderrTail)
   entry.status = verdict.status
   entry.lastResult = {
