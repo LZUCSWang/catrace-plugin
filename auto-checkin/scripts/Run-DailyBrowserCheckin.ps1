@@ -480,7 +480,7 @@ function Invoke-MaoyulinCheckin {
 # username and balance from the accessibility tree.
 function Get-ConsolePageInfo {
     param([long]$WindowHandle)
-    $info = @{ Ok = $false; Error = ''; User = '?'; Balance = '?'; Texts = @() }
+    $info = @{ Ok = $false; Error = ''; Balance = '?'; Texts = @() }
     if ($WindowHandle -eq 0) {
         $info.Error = 'page did not load (no window handle)'
         return $info
@@ -523,13 +523,6 @@ function Get-ConsolePageInfo {
             break
         }
     }
-    # Username: greeting text like "欢迎，xxx".
-    foreach ($n in $names) {
-        if ($n -match '欢迎[，,!]?\s*(\S{1,40})') {
-            $info.User = $Matches[1]
-            break
-        }
-    }
     return $info
 }
 
@@ -566,10 +559,10 @@ foreach ($browser in $Browsers) {
                 Write-Log ('{0}: failed - AnyRouter {1}.' -f $browser.Name, $pageInfo.Error)
                 continue
             }
-            if (($pageInfo.User -eq '?') -or ($pageInfo.Balance -eq '?')) {
-                Write-Log ('{0}: scrape incomplete, page texts: {1}' -f $browser.Name, ($pageInfo.Texts -join ' | '))
+            if ($pageInfo.Balance -eq '?') {
+                Write-Log ('{0}: balance not found, page texts: {1}' -f $browser.Name, ($pageInfo.Texts -join ' | '))
             }
-            Write-Log ('{0}: check-in done in running browser (GitHub temporary window closed: {1}, AnyRouter visited: {2}, user={3}, balance={4}).' -f $browser.Name, $closedGitHub, $closedAnyRouter, $pageInfo.User, $pageInfo.Balance)
+            Write-Log ('{0}: check-in done in running browser (GitHub temporary window closed: {1}, AnyRouter visited: {2}, balance={3}).' -f $browser.Name, $closedGitHub, $closedAnyRouter, $pageInfo.Balance)
         }
         else {
             # Step 1: GitHub - a short visit is enough for the check-in.
@@ -595,10 +588,10 @@ foreach ($browser in $Browsers) {
                 Write-Log ('{0}: failed - AnyRouter {1}.' -f $browser.Name, $pageInfo.Error)
                 continue
             }
-            if (($pageInfo.User -eq '?') -or ($pageInfo.Balance -eq '?')) {
-                Write-Log ('{0}: scrape incomplete, page texts: {1}' -f $browser.Name, ($pageInfo.Texts -join ' | '))
+            if ($pageInfo.Balance -eq '?') {
+                Write-Log ('{0}: balance not found, page texts: {1}' -f $browser.Name, ($pageInfo.Texts -join ' | '))
             }
-            Write-Log ('{0}: launched, checked in (AnyRouter visited, user={1}, balance={2}), browser closed.' -f $browser.Name, $pageInfo.User, $pageInfo.Balance)
+            Write-Log ('{0}: launched, checked in (AnyRouter visited, balance={1}), browser closed.' -f $browser.Name, $pageInfo.Balance)
         }
     }
     catch {

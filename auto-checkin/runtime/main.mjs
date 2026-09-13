@@ -334,11 +334,9 @@ function classify(lines, browser, code, timedOut, stderrTail) {
       verdict = { status: 'failed', summary: '无日志输出（检查脚本路径与日志路径配置）' }
     }
   }
-  // The script appends user=<name>, balance=<value> to its log lines.
+  // The script appends balance=<value> to its log lines.
   const joined = lines.join('\n')
-  const user = joined.match(/user=([^,)\n]*)/)
   const balance = joined.match(/balance=([^,)\n]*)/)
-  if (user && user[1].trim() && user[1].trim() !== '?') verdict.user = user[1].trim()
   if (balance && balance[1].trim() && balance[1].trim() !== '?') verdict.balance = balance[1].trim()
   return verdict
 }
@@ -363,7 +361,7 @@ async function runBrowser(entry, reason) {
     startedAt, endedAt, durationSec: Math.round((endedAt - startedAt) / 1000),
     exitCode: code, timedOut, status: verdict.status,
     summary: verdict.summary, lines: lines.slice(-4),
-    user: verdict.user || null, balance: verdict.balance || null,
+    balance: verdict.balance || null,
   }
   state.history.unshift({ date: state.date, browser: entry.browser, ...entry.lastResult })
   state.history = state.history.slice(0, 30)
@@ -405,7 +403,6 @@ function publishResult(entry, reason, logPath) {
         browser: entry.browser,
         status: r.status,
         summary: r.summary,
-        user: r.user || null,
         balance: r.balance || null,
         plannedAt: entry.time,
         durationSec: r.durationSec,
