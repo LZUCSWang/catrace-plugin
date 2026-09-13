@@ -475,6 +475,64 @@ function Invoke-MaoyulinCheckin {
     return 'clicked'
 }
 
+# Inspect the console page in a browser window: detect error pages (a dead
+# domain must not count as a check-in) and best-effort scrape the account
+# username and balance from the accessibility tree.
+function Get-ConsolePageInfo {
+    param([long]$WindowHandle)
+    $info = @{ Ok = $false; Error = ''; User = '?'; Balance = '?'; Texts = @() }
+    if ($WindowHandle -eq 0) {
+        $info.Error = 'page did not load (no window handle)'
+        return $info
+    }
+    try {
+        [void][ChromiumAccessibilityPoke]::PokeWindow([IntPtr]$WindowHandle)
+        Start-Sleep -Milliseconds 800
+        $window = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$WindowHandle)
+        $elements = $window.FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.Condition]::TrueCondition)
+    }
+    catch {
+        $info.Error = 'page did not load (uia scan failed)'
+        return $info
+    }
+    $names = New-Object System.Collections.Generic.List[string]
+    foreach ($el in $elements) {
+        try { $n = $el.Current.Name } catch { $n = '' }
+        if ($n) { [void]$names.Add($n) }
+    }
+    # Browser error pages: titles like "site - 网络错误" / "无法访问此页面".
+    foreach ($n in $names) {
+        if ($n -match '网络错误|无法访问|不能访问|拒绝连接|无法连接|DNS_PROBE|ERR_') {
+            $info.Error = 'page did not load (browser error page)'
+            return $info
+        }
+    }
+    $info.Ok = $true
+    $info.Texts = @($names | Select-Object -First 12)
+    # Balance: a 余额-labeled text, then the first currency-ish value after it.
+    for ($i = 0; $i -lt $names.Count; $i++) {
+        if ($names[$i] -match '余额') {
+            for ($j = $i + 1; $j -lt [Math]::Min($i + 6, $names.Count); $j++) {
+                if ($names[$j] -match '^\s*(?:[$￥¥]\s*[\d,]+(?:\.\d+)?|[\d,]+\.\d{1,2})\s*$') {
+                    $info.Balance = $names[$j].Trim()
+                    break
+                }
+            }
+            break
+        }
+    }
+    # Username: greeting text like "欢迎，xxx".
+    foreach ($n in $names) {
+        if ($n -match '欢迎[，,!]?\s*(\S{1,40})') {
+            $info.User = $Matches[1]
+            break
+        }
+    }
+    return $info
+}
+
 foreach ($browser in $Browsers) {
     try {
         if (-not (Test-Path -LiteralPath $browser.Path)) {
@@ -502,9 +560,16 @@ foreach ($browser in $Browsers) {
 
             $anyRouterWindow = Open-TemporaryBrowserWindow -Browser $browser -Url $AnyRouterUrl
             Start-Sleep -Seconds $AnyRouterLoadSeconds
+            $pageInfo = Get-ConsolePageInfo -WindowHandle $anyRouterWindow
             $closedAnyRouter = Close-BrowserWindowHandle -WindowHandle $anyRouterWindow
-
-            Write-Log ('{0}: check-in done in running browser (GitHub temporary window closed: {1}, AnyRouter temporary window closed: {2}).' -f $browser.Name, $closedGitHub, $closedAnyRouter)
+            if (-not $pageInfo.Ok) {
+                Write-Log ('{0}: failed - AnyRouter {1}.' -f $browser.Name, $pageInfo.Error)
+                continue
+            }
+            if (($pageInfo.User -eq '?') -or ($pageInfo.Balance -eq '?')) {
+                Write-Log ('{0}: scrape incomplete, page texts: {1}' -f $browser.Name, ($pageInfo.Texts -join ' | '))
+            }
+            Write-Log ('{0}: check-in done in running browser (GitHub temporary window closed: {1}, AnyRouter visited: {2}, user={3}, balance={4}).' -f $browser.Name, $closedGitHub, $closedAnyRouter, $pageInfo.User, $pageInfo.Balance)
         }
         else {
             # Step 1: GitHub - a short visit is enough for the check-in.
@@ -512,8 +577,11 @@ foreach ($browser in $Browsers) {
             Start-Sleep -Seconds $GitHubWaitSeconds
 
             # Step 2: AnyRouter - open the console; a visit is enough for check-in.
+            $consoleWindow = Wait-NewBrowserWindow -Browser $browser -ExistingHandles @() -TimeoutSeconds 15
             Start-Process -FilePath $browser.Path -ArgumentList $AnyRouterUrl
             Start-Sleep -Seconds $AnyRouterLoadSeconds
+            $pageInfo = Get-ConsolePageInfo -WindowHandle $consoleWindow
+
 
             # Step 3: cleanup.
             Get-Process -Name $browser.ProcessName -ErrorAction SilentlyContinue |
@@ -523,7 +591,14 @@ foreach ($browser in $Browsers) {
             Get-Process -Name $browser.ProcessName -ErrorAction SilentlyContinue |
                 Where-Object { $_.MainWindowHandle -ne 0 } |
                 Stop-Process -Force
-            Write-Log ('{0}: launched, checked in (AnyRouter visited), browser closed.' -f $browser.Name)
+            if (-not $pageInfo.Ok) {
+                Write-Log ('{0}: failed - AnyRouter {1}.' -f $browser.Name, $pageInfo.Error)
+                continue
+            }
+            if (($pageInfo.User -eq '?') -or ($pageInfo.Balance -eq '?')) {
+                Write-Log ('{0}: scrape incomplete, page texts: {1}' -f $browser.Name, ($pageInfo.Texts -join ' | '))
+            }
+            Write-Log ('{0}: launched, checked in (AnyRouter visited, user={1}, balance={2}), browser closed.' -f $browser.Name, $pageInfo.User, $pageInfo.Balance)
         }
     }
     catch {

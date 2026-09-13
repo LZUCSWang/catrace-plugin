@@ -82,6 +82,8 @@ export default {
       const parts = []
       if (payload.plannedAt) parts.push(`计划 ${payload.plannedAt}`)
       if (payload.durationSec != null) parts.push(`用时 ${payload.durationSec}s`)
+      if (payload.user) parts.push(payload.user)
+      if (payload.balance) parts.push(payload.balance)
       meta = parts.join(' · ')
     }
 
