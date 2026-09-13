@@ -10,3 +10,12 @@ Thumbs.db
 node_modules/
 **/runtime/shutdown.signal
 **/runtime/last-saved.txt
+
+# Trellis 本地开发辅助，不提交到 fork
+.trellis/
+.claude/
+.codex/
+.grok/
+.agents/
+AGENTS.md
+.gitattributes
