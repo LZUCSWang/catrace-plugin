@@ -18,7 +18,12 @@ const CSS = `
 .ac-mid { flex:1; min-width:0; display:flex; flex-direction:column; gap:0.125rem; }
 .ac-title { margin:0; font-size:0.8125rem; font-weight:700; color:#0f172a; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ac-sub { margin:0; font-size:0.6875rem; font-weight:500; color:#64748b; line-height:1.35; word-break:break-all; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.ac-meta { margin:0; font-size:0.625rem; color:#94a3b8; line-height:1.3; white-space:nowrap; }
+.ac-pill-row { display:flex; align-items:center; gap:0.375rem; margin-top:0.125rem; }
+.ac-pill {
+  display:inline-flex; align-items:center; padding:0.1875rem 0.625rem; border-radius:0.5rem;
+  background:#ecfdf5; color:#047857; font-size:0.75rem; font-weight:700; line-height:1.4;
+  border:0.0625rem solid #a7f3d0; white-space:nowrap;
+}
 .ac-lines { margin:0.25rem 0 0; padding:0; list-style:none; font-size:0.6875rem; color:#475569; line-height:1.6; max-height:6.25rem; overflow:auto; }
 .ac-lines li { display:flex; justify-content:space-between; gap:0.5rem; }
 .ac-lines li span:last-child { flex-shrink:0; color:#94a3b8; }
@@ -73,18 +78,33 @@ export default {
 
     let badgeClass = 'summary'
     let badgeText = '✓'
-    let sub = payload.summary || event.body || ''
-    let meta = ''
     if (!isSummary) {
       badgeClass = payload.status === 'ok' ? 'ok'
         : payload.status === 'skipped' ? 'skipped' : 'failed'
       badgeText = (payload.browser || '?').slice(0, 1)
-      const parts = []
-      if (payload.plannedAt) parts.push(`计划 ${payload.plannedAt}`)
-      if (payload.durationSec != null) parts.push(`用时 ${payload.durationSec}s`)
-      if (payload.user) parts.push(payload.user)
-      if (payload.balance) parts.push(payload.balance)
-      meta = parts.join(' · ')
+    }
+
+    // Result cards: title + balance pill only. Failures keep their reason
+    // (there is no balance to show and the user needs to know what broke).
+    let body = null
+    if (isSummary) {
+      body = h(
+        'ul',
+        { class: 'ac-lines' },
+        (payload.summary || []).map((row) => {
+          const cells = String(row).split(' ')
+          return h('li', [
+            h('span', cells.slice(0, 2).join(' ')),
+            h('span', cells.slice(2).join(' ')),
+          ])
+        }),
+      )
+    } else if (payload.balance) {
+      body = h('div', { class: 'ac-pill-row' }, [
+        h('span', { class: 'ac-pill' }, `余额 ${payload.balance}`),
+      ])
+    } else if (payload.status !== 'ok') {
+      body = h('p', { class: 'ac-sub' }, payload.summary || event.body || '')
     }
 
     return h('div', { class: 'ac-root' }, [
@@ -92,20 +112,7 @@ export default {
         h('div', { class: `ac-badge ${badgeClass}` }, badgeText),
         h('div', { class: 'ac-mid' }, [
           h('p', { class: 'ac-title' }, event.title || '自动签到'),
-          isSummary
-            ? h(
-                'ul',
-                { class: 'ac-lines' },
-                (payload.summary || []).map((row) => {
-                  const cells = String(row).split(' ')
-                  return h('li', [
-                    h('span', cells.slice(0, 2).join(' ')),
-                    h('span', cells.slice(2).join(' ')),
-                  ])
-                }),
-              )
-            : h('p', { class: 'ac-sub' }, sub),
-          meta ? h('p', { class: 'ac-meta' }, meta) : null,
+          body,
         ]),
         h('div', { class: 'ac-actions' }, [
           ...(event.actions || []).map((action) =>
