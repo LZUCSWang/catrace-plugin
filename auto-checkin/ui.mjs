@@ -114,20 +114,20 @@ export default {
           h('p', { class: 'ac-title' }, event.title || '自动签到'),
           body,
         ]),
-        h('div', { class: 'ac-actions' }, [
-          ...(event.actions || []).map((action) =>
-            h(
-              'button',
-              {
-                key: action.id,
-                class: action.id === 'viewLog' ? 'ac-btn ghost' : 'ac-btn',
-                type: 'button',
-                onClick: () => this.$emit('action', action.id),
-              },
-              action.label,
-            ),
-          ),
-        ]),
+        (event.actions || []).length
+          ? h('div', { class: 'ac-actions' }, (event.actions || []).map((action) =>
+              h(
+                'button',
+                {
+                  key: action.id,
+                  class: action.id === 'dismiss' ? 'ac-btn ghost' : 'ac-btn',
+                  type: 'button',
+                  onClick: () => this.$emit('action', action.id),
+                },
+                action.label,
+              ),
+            ))
+          : null,
       ]),
       h('div', { class: 'ac-bar-wrap' }, [
         h('div', { class: this.isHovered ? 'ac-bar paused' : 'ac-bar' }),

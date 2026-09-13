@@ -384,9 +384,13 @@ function publishResult(entry, reason, logPath) {
       : reason === 'retry' ? '（重试）' : ''
   const level = ok ? 'success' : r.status === 'skipped' ? 'info' : 'error'
   const sticky = r.status === 'failed'
+  // Success/skip cards auto-hide and carry no buttons. Failures stay until
+  // dismissed, so they need both a retry and a way to close the card.
   const actions = []
-  if (r.status === 'failed') actions.push({ id: 'retry', label: '重试' })
-  actions.push({ id: 'viewLog', label: '查看日志' })
+  if (r.status === 'failed') {
+    actions.push({ id: 'retry', label: '重试' })
+    actions.push({ id: 'dismiss', label: '关闭' })
+  }
   send({
     v: 1, op: 'publish', event: {
       eventType: 'auto-checkin.result',
@@ -427,7 +431,7 @@ function maybePublishSummary() {
       title: bad ? `今日签到结束（${bad} 项异常）` : '今日签到全部完成',
       body: rows.join('\n'),
       level: bad ? 'warning' : 'success',
-      actions: [{ id: 'viewLog', label: '查看日志' }],
+      actions: [],
       payload: {
         view: 'summary',
         date: state.date,
@@ -551,12 +555,6 @@ function handleResolved(message) {
   const payload = (message.payload && typeof message.payload === 'object') ? message.payload : {}
   if (actionId === 'retry' && payload.browser) {
     enqueue(payload.browser, 'retry')
-  } else if (actionId === 'viewLog' && payload.logPath) {
-    try {
-      spawn('cmd.exe', ['/c', 'start', '', payload.logPath], { detached: true, stdio: 'ignore' })
-    } catch (e) {
-      log(`open log failed: ${e}`, 'warn')
-    }
   }
 }
 
